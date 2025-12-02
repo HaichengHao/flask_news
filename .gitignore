@@ -1,0 +1,6 @@
+# 忽略虚拟环境目录
+.venv/
+.venvs/
+__pycache__/
+*.pyc
+.env
