@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>首页测试</title>
+    <script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
+    <style>
+        .container p{
+            color: white;
+            background-color: blueviolet;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+<!--    <p></p>-->
+</div>
+</body>
+<script>
+    $(function () {
+        url = 'http://127.0.0.1:8099/types';
+        $.get(url, function (data) {
+            // console.log(data);
+            for (i = 0; i < data.length; i++) {
+                // console.log(data[i].tpname)
+                $('.container').append('<p>'+data[i].tpname+'</p>')
+            }
+        });
+    })
+</script>
+</html>
