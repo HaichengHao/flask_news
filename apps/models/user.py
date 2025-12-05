@@ -6,6 +6,6 @@ class User(BaseModel):
     username = db.Column(db.String(64), unique=True, nullable=False) #用户名不可重复
     password = db.Column(db.String(64), nullable=False)
     phone = db.Column(db.String(64), unique=True, nullable=False)
-    icon = db.Column(db.String(64), nullable=False)
+    icon = db.Column(db.String(64), nullable=True)
     def __str__(self):
         return self.username

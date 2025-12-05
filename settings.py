@@ -29,7 +29,8 @@ class Config:
     SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://niko:HHCzio20@127.0.0.1:3306/flasknews'
 
     # 9.设置session需要的SECRET_KEY
-    SECRET_KEY = ';ouahsef;euahiuhiluh'
+    # SECRET_KEY = ';ouahsef;euahiuhiluh'
+    SECRET_KEY = os.getenv('SECRET_KEY')
     #部署
     # 10.配置项目路径
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # important:得到当前文件的文件夹

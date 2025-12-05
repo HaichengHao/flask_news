@@ -1,4 +1,5 @@
 from apps.apis.newsapi import news_bp
+from apps.apis.userapi import usr_bp
 from settings import configdict
 from flask import Flask
 from .models.news import NewsType
@@ -12,6 +13,7 @@ def create_app():
 
     #tips:注册蓝图
     app.register_blueprint(news_bp)
+    app.register_blueprint(usr_bp)
     print(app.url_map) #tips:打印一下路由
     cors.init_app(app)
     migrate.init_app(app, db)
