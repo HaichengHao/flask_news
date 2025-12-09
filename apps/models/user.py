@@ -4,8 +4,9 @@ from exts.dbhelper import db
 class User(BaseModel):
     __tablename__ = 'user'
     username = db.Column(db.String(64), unique=True, nullable=False) #用户名不可重复
-    password = db.Column(db.String(64), nullable=False)
+    password = db.Column(db.String(256), nullable=False)
     phone = db.Column(db.String(64), unique=True, nullable=False)
     icon = db.Column(db.String(64), nullable=True)
+    newslst=db.relationship('News',backref='author')
     def __str__(self):
         return self.username
