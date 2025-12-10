@@ -70,6 +70,7 @@ class LoginAndRegisterCBV(Resource):
         args = l_and_rParser.parse_args()
         phone = args.get('phone')  # 输入手机号
         vcode = args.get('vcode')
+        password = args.get('password') #也要输入密码，这是更好的写法，不然无法处置用户
         # 因为还是没有申请到个人短信api所以只能先用假的了
         if vcode == '1234':
             # tips:验证码通过之后查找数据库中有没有该电话号码，如果有就作登陆处理，否则作注册处理
@@ -84,9 +85,9 @@ class LoginAndRegisterCBV(Resource):
                 }, 200
             else:
                 # tips:先随机生成一个用户名
-                s = ''
+                s = f'用户{phone[4:9]}'
 
-                new_user = User(phone=phone, username=s)
+                new_user = User(phone=phone, username=s,password=generate_password_hash(password,salt_length=8))
                 db.session.add(new_user)
                 db.session.commit()
                 return {'msg': '注册成功'}

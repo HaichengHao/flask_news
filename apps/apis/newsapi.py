@@ -2,6 +2,7 @@ from flask_restful import Resource, fields, marshal_with, reqparse, Api, marshal
 from flask import Blueprint
 from exts.dbhelper import db
 from ..models.news import NewsType, News
+from sqlalchemy.orm import joinedload #预加载关联数据
 
 news_bp = Blueprint('news', __name__)
 news_api = Api(news_bp)
@@ -52,7 +53,7 @@ nl_fields = {
     'title': fields.String,
     'desc': fields.String,
     'date_time': fields.DateTime,
-    'author': id2name(attribute='author'), #直接对接字段User表中的author
+    'author': id2name(attribute='author'),  # 直接对接字段User表中的author
     'url': fields.Url('news.news_detail', absolute=True)  # 这里是新闻详情页的链接
 }
 nl_parser = reqparse.RequestParser()
@@ -77,11 +78,29 @@ class NewsListCBV(Resource):
             'has_more': pagination.has_next,  # tips:利用pagination对象的内置has_next,has_prev来进行分页判断
             'data': marshal(pagination.items, nl_fields),
             'page': pagination.page,
-            'html':'null'
+            'html': 'null'
         }
 
         return data
 
+
+# 定义评论的回复fields
+reply_fields = {
+    'user': id2name(attribute='replyuser'),
+    'love_num': fields.Integer,
+    'content': fields.String,
+    'date_time': fields.DateTime,
+
+}
+
+# 定义评论的fiedls
+comments_fields = {
+    'user': id2name('user'),
+    'love_num': fields.Integer,
+    'content': fields.String,
+    'date_time': fields.DateTime,
+    'reply': fields.List(fields.Nested(reply_fields)),
+}
 
 # 定义新闻详情页面
 news_detail_fields = {
@@ -90,14 +109,36 @@ news_detail_fields = {
     'date_time': fields.DateTime,
     'author': id2name(attribute='author'),
     'content': fields.String,
-    # 'comment': fields.String,
+    'comments': fields.List(fields.Nested(comments_fields)),
 }
+
+# tips:创建新增新闻的parser
+news_parser = reqparse.RequestParser()
+news_parser.add_argument('title', type=str, location=['form'])  # 标题
+news_parser.add_argument('content', type=str, location=['form'])  # 内容
+news_parser.add_argument('user_id', type=str, location=['form'])  # 作者
+news_parser.add_argument('desc', type=str, location=['form'])  # 简介
+news_parser.add_argument('news_type_id', type=int, location=['form'])  # 分类
 
 
 class NewsDetailCBV(Resource):
     def get(self, id):
-        news = News.query.get_or_404(id)
+        news = News.query(joinedload(News.author)).get_or_404(id)
         return marshal(news, news_detail_fields)
+
+    def post(self, uid):
+        news_parser_args = news_parser.parse_args()
+        title = news_parser_args.get('title')
+        desc = news_parser_args.get('desc')
+        author = news_parser_args.get('user_id')
+        content = news_parser_args.get('content')
+        news_type_id = news_parser_args.get('news_type_id')
+        news = News(title=title, content=content, desc=desc, news_type_id=news_type_id, user_id=author)
+        db.session.add(news)
+        db.session.commit()
+        return {
+            'msg': '添加成功'
+        }, 200
 
 
 news_api.add_resource(NewstypeCBV, '/types', endpoint='types')
