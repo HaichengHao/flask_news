@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from flask_restful import Resource, fields, marshal_with, reqparse, Api, marshal
 from flask import Blueprint
 from exts.dbhelper import db
@@ -18,6 +20,9 @@ resp_field = {
 parser = reqparse.RequestParser()
 parser.add_argument('type_name', type=str, location=['form'])
 
+# tips:定义修改需要的传入
+update_type_parser=parser.copy() #因为parser中已经有了type_name了，所以我们这样写就不用再来一遍参数添加了
+update_type_parser.add_argument('id',type=int,required=True,location=['form'],help='添加要修改的分类id')
 
 # step 1:定义新闻类型api
 
@@ -38,6 +43,46 @@ class NewstypeCBV(Resource):
         db.session.commit()  # 提交
 
         return ndbobj
+
+    #tips:修改分类名称，部分修改用patch
+    def patch(self):
+        update_type_parser_args=update_type_parser.parse_args()
+        news_type_id=update_type_parser_args.get('id')  #获取NewsType表中的类型id
+        new_type_name = update_type_parser_args.get('type_name') #得到新的名字
+        #然后进行修改
+        # News.query.filter(NewsType.id==news_type_id).update({'type_name':new_type_name})
+        target_type=NewsType.query.filter(NewsType.id==news_type_id).first()
+        # target_type=News.query.get(news_type_id)
+        if target_type:
+            target_type.type_name = new_type_name
+            target_type.date_time = datetime.now()
+            db.session.commit()
+            return {
+                'mag':'修改成功',
+                'type': marshal(target_type,resp_field)
+            },200
+        return {
+            'msg':'未找到对应类型'
+        },400
+
+
+
+    #tips:删除分类名称,用delete
+    def delete(self):
+        del_type_args = update_type_parser.parse_args()
+        target_id = del_type_args.get('id')
+        target_type = NewsType.query.filter(NewsType.id==target_id).first()
+        if target_type:
+            db.session.delete(target_type) #删除查询到的type
+            db.session.commit()
+            return {
+                'msg':'删除成功'
+            }
+        else:
+            return {
+                'msg':'未找到，请检查id是否有误!!!'
+            }
+
 
 
 # step 2: 定义新闻api
@@ -122,8 +167,10 @@ news_parser.add_argument('news_type_id', type=int, location=['form'])  # 分类
 
 
 class NewsDetailCBV(Resource):
-    def get(self, id):
-        news = News.query(joinedload(News.author)).get_or_404(id)
+    def get(self, news_id):
+        # news = News.query(joinedload(News.author)).get_or_404(id)
+        news = News.query.filter(News.id==news_id).first()
+        print(news.title)
         return marshal(news, news_detail_fields)
 
     def post(self, uid):
@@ -143,4 +190,4 @@ class NewsDetailCBV(Resource):
 
 news_api.add_resource(NewstypeCBV, '/types', endpoint='types')
 news_api.add_resource(NewsListCBV, '/newslst', endpoint='newslst')
-news_api.add_resource(NewsDetailCBV, '/newsdetail/<id>', endpoint='news_detail')
+news_api.add_resource(NewsDetailCBV, '/newsdetail/<news_id>', endpoint='news_detail')
