@@ -4,7 +4,7 @@ from flask_restful import Resource, Api, fields, reqparse, inputs, marshal
 from flask import Blueprint, request, abort, g, session
 from sqlalchemy.orm.sync import update
 from werkzeug.security import generate_password_hash, check_password_hash
-
+from exts.cache_helper import cache
 from apps.models.user import User
 from exts.dbhelper import db
 from apps.utils.auth import login_required
@@ -13,6 +13,9 @@ from apps.utils.captchagen import generate_captcha
 from werkzeug.datastructures.file_storage import FileStorage
 from flask_restful.inputs import regex
 import re
+import uuid as uuidlib
+
+
 
 # tips 创建蓝图和api
 
@@ -101,15 +104,38 @@ class LoginAndRegisterCBV(Resource):
 mfvcode_parser = parser.copy()  # 由于会用到手机号，所以我们还是先要copy
 mfvcode_parser.add_argument('imgcode', type=inputs.regex(r'^[a-zA-Z0-9]{6}$'), required=True, location=['form'],
                             help='请输入正确格式的验证码')  # 然后添加一个图形验证码的输入位置
-
+mfvcode_parser.add_argument('captcha_key',type=str, required=True, location=['form'],help='缺少验证码标识')
 
 class MofyPwdCBV(Resource):
     def get(self):
-        captcha, _ = generate_captcha(6)  # 因为我们只需要返回验证码而不再需要图片，所以只需要取出第一个返回值即可
-        session['captcha'] = captcha
+        # import sys
+        # import uuid as uuidlib
+        # import importlib
+        # if 'uuid' in sys.modules:
+        #     importlib.reload(sys.modules['uuid'])
+        # print(">>> uuidlib.uuid4:", repr(uuidlib.uuid4))
+        # print(print(">>> uuid in sys.modules:", 'uuid' in sys.modules))
+        # print(">>> uuid type:", type(uuidlib))
+        # print(">>> uuid value:", repr(uuidlib))
+        test_key = f'test:{uuidlib.uuid4().hex}'
+        print(test_key)
+        captcha, _ = generate_captcha(6)  # 因为我们只需要返回验证码而不再需要图片，所以只需要取出第一个返回值即可 #step 0 搞个保险柜
+        captcha_key = f"captcha:{uuidlib.uuid4().hex}" #step 1 保险柜的存放坐标
+
+        #tips:存入cache,60秒后过期
+        cache.set(captcha_key,captcha,timeout=60) #设置键对应的值，键是上面生成的码串，值是cpathca   #step 2 把坐标对应的保险柜关联起来
         return {
-            'captcha': captcha,
+            'captcha':captcha, #写这个是为了测试，不然我们自己都不知道验证码是什么哈哈哈
+            'captcha_key':captcha_key,
+            'msg':'图形验证码已生成'
         }
+
+
+        #旧方法用的是session,不安全
+        # session['captcha'] = captcha
+        # return {
+        #     'captcha': captcha,
+        # }
         # tips:上面测试返回验证码成功，下面就涉及到输入，一个输入的是手机号，一个输入的是图形验证码的code
 
     # def post(self):
@@ -122,21 +148,44 @@ class MofyPwdCBV(Resource):
     def post(self):
         mfvcode_args = mfvcode_parser.parse_args()
         phonenum = mfvcode_args.get('phone')
-        imgcode = mfvcode_args.get('imgcode')
+        imgcode = mfvcode_args.get('imgcode') #step 4保险柜密码
+
+        #tips:新，用cache来进行验证处理，从前端获取captcha_key
+        captcha_key=mfvcode_args.get('captcha_key')  #step  3前端人拿到坐标
+
         res = User.query.filter(User.phone == phonenum).first()
         if not res:  # 如果没有查询到手机号就返回有误让重新输入
             return {
                 'msg': '用户不存在，请检查手机号后重新输入'
             }
-        else:  # 如果手机号查询到就进行密码验证
-            if imgcode.lower() != session.get('captcha').lower():
+        else:
+            if not captcha_key:
                 return {
-                    'msg': 'error,验证码输入有误'
-                }, 400
-            # 如果检测成功就跳到输入手机验证码的界面并进行密码的修改操作
-            # tips:由于短信服务还是没有申请成功，所以还是得用假的短信验证码操作接下来的代码
-            else:  # 如果成功了应该转到更新密码的接口
-                pass
+                    'msg':'缺少验证码标识'
+                },400
+            #从cache中取出验证码
+            stored_captcha = cache.get(captcha_key)  #step 5前端拿到坐标后去找保险柜
+            if not stored_captcha:
+                return {'msg':'验证码错误或已过期'},400
+
+            if imgcode.lower()!=stored_captcha.lower(): # step 6然后看保险柜的密码和输入的密码是否一致
+                return {
+                    'msg':'验证码错误'
+                },400
+
+            cache.delete(captcha_key) #如果验证成功就删除，防止重放
+            return {
+                'msg':'校验完毕，即将跳转'
+            }
+        # else:  # 如果手机号查询到就进行密码验证
+        #     if imgcode.lower() != session.get('captcha').lower():
+        #         return {
+        #             'msg': 'error,验证码输入有误'
+        #         }, 400
+        #     # 如果检测成功就跳到输入手机验证码的界面并进行密码的修改操作
+        #     # tips:由于短信服务还是没有申请成功，所以还是得用假的短信验证码操作接下来的代码
+        #     else:  # 如果成功了应该转到更新密码的接口
+        #         pass
 
 
 # tips:更新密码

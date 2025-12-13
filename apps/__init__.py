@@ -5,10 +5,13 @@ from flask import Flask
 from .models.news import NewsType
 from .models.user import User
 from exts.dbhelper import db,migrate,cors
+from exts.cache_helper import cache
+#tips:引入cacheing
 def create_app():
     app = Flask(__name__)
 
     app.config.from_object(configdict['default'])
+    cache.init_app(app)
     db.init_app(app) #tips:添加支持证书supports_credentials=True
 
     #tips:注册蓝图

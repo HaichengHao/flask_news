@@ -41,6 +41,9 @@ class Config:
     # 相册上传目录
     UPLOAD_PHOTO_FOLDER = os.path.join(STATIC_DIR, 'upload/photo')
 
+    #tips:新增redis作为cache
+    CACHE_TYPE='redis'
+    CACHE_REDIS_URL='redis://127.0.0.1:6379/1'
 
 # 配置开发配置
 class devConfig(Config):
